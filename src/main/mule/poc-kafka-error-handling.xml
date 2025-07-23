@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<kafka:consumer-config
+		name="Apache_Kafka_Consumer_main"
+		doc:name="Apache Kafka Consumer configuration"
+		doc:id="e24ce69a-3e95-41bc-b48e-0850da5fa2c4">
+		<kafka:consumer-plaintext-connection
+			groupId="consumer-group-1">
+			<kafka:bootstrap-servers>
+				<kafka:bootstrap-server
+					value="127.0.0.1:9094" />
+			</kafka:bootstrap-servers>
+			<kafka:topic-patterns>
+				<kafka:topic-pattern value="main-topic" />
+			</kafka:topic-patterns>
+		</kafka:consumer-plaintext-connection>
+	</kafka:consumer-config>
+	<kafka:consumer-config
+		name="Apache_Kafka_Consumer_retry"
+		doc:name="Apache Kafka Consumer configuration"
+		doc:id="69b2cdd3-24b1-4574-96d2-421b48511128">
+		<kafka:consumer-plaintext-connection
+			groupId="consumer-group-2" isolationLevel="READ_COMMITTED" requestTimeout="60" fetchMaximumSize="19" maximumPartitionFetchSize="19" recordLimit="100" >
+			<kafka:bootstrap-servers>
+				<kafka:bootstrap-server
+					value="127.0.0.1:9094" />
+			</kafka:bootstrap-servers>
+			<kafka:additional-properties>
+				<kafka:additional-property
+					key="max.poll.records" value="500" />
+			</kafka:additional-properties>
+			<kafka:topic-patterns>
+				<kafka:topic-pattern value="retry-topic" />
+			</kafka:topic-patterns>
+		</kafka:consumer-plaintext-connection>
+	</kafka:consumer-config>
+	<flow name="main-flow"
+		doc:id="cf5bfbae-007d-4585-bf3c-b06eb68ef442">
+		<kafka:message-listener
+			doc:name="Message listener"
+			doc:id="5e1274ed-b4db-4d7c-94bc-a69308b122b3"
+			config-ref="Apache_Kafka_Consumer_main" />
+		<flow-ref doc:name="Invoke processing-logic"
+			doc:id="698b88da-f568-4fa8-95e1-6d8e1f6843f0" name="processing-logic" />
+	</flow>
+	<sub-flow name="processing-logic"
+		doc:id="2d2b8745-368d-47ee-97d7-fb2a114f6eac">
+		<logger level="INFO" doc:name="Logger"
+			doc:id="7a165b52-eb4e-45bb-bafd-37397b463707" message="#[payload]" />
+	</sub-flow>
+	<flow name="poc-kafka-error-handlingFlow"
+		doc:id="01a1d226-841d-4b01-b270-9b5a743b596b">
+		<scheduler doc:name="Scheduler"
+			doc:id="b2f2a550-e771-4490-ae0e-531e84b1d4b2">
+			<scheduling-strategy>
+				<fixed-frequency frequency="5" timeUnit="SECONDS"
+					startDelay="5" />
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger"
+			doc:id="7c200079-01d2-4d61-b2b4-6ba090ec179c"
+			message="Starting scheduled consumption of retry-topic." />
+		<kafka:consume doc:name="Consume"
+			doc:id="ce641311-bcbf-4a23-ac72-4150e1c48736"
+			config-ref="Apache_Kafka_Consumer_retry" ackMode="AUTO" pollTimeout="180" pollTimeoutTimeUnit="SECONDS"/>
+		<ee:transform doc:name="Set payload" doc:id="861dc164-5498-4e8b-938f-5a5e96e770a2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+read(payload, (attributes.headers.'Content-Type' default "application/json"))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Invoke processing-logic"
+			doc:id="4d8b7eda-d193-46e7-bcf4-c71b7bccb9b4" name="processing-logic" />
+			   <logger level="INFO" doc:name="Logger" doc:id="67842ede-d394-47c7-86c7-d4a2f71bd427" message="Finished scheduled consumption of retry-topic."/>
+	</flow>
+</mule>
