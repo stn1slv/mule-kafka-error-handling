@@ -4,7 +4,8 @@
 	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
 	xmlns="http://www.mulesoft.org/schema/mule/core"
 	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 	<kafka:consumer-config
@@ -27,7 +28,9 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 		doc:name="Apache Kafka Consumer configuration"
 		doc:id="69b2cdd3-24b1-4574-96d2-421b48511128">
 		<kafka:consumer-plaintext-connection
-			groupId="consumer-group-2" isolationLevel="READ_COMMITTED" requestTimeout="60" fetchMaximumSize="19" maximumPartitionFetchSize="19" recordLimit="100" >
+			groupId="consumer-group-2" isolationLevel="READ_COMMITTED"
+			requestTimeout="60" fetchMaximumSize="19"
+			maximumPartitionFetchSize="19" recordLimit="100">
 			<kafka:bootstrap-servers>
 				<kafka:bootstrap-server
 					value="127.0.0.1:9094" />
@@ -53,33 +56,93 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 	<sub-flow name="processing-logic"
 		doc:id="2d2b8745-368d-47ee-97d7-fb2a114f6eac">
 		<logger level="INFO" doc:name="Logger"
-			doc:id="7a165b52-eb4e-45bb-bafd-37397b463707" message="#[payload]" />
+			doc:id="7a165b52-eb4e-45bb-bafd-37397b463707"
+			message="Processing message: #[payload]" />
 	</sub-flow>
 	<flow name="poc-kafka-error-handlingFlow"
 		doc:id="01a1d226-841d-4b01-b270-9b5a743b596b">
 		<scheduler doc:name="Scheduler"
 			doc:id="b2f2a550-e771-4490-ae0e-531e84b1d4b2">
 			<scheduling-strategy>
-				<fixed-frequency frequency="5" timeUnit="SECONDS"
-					startDelay="5" />
+				<fixed-frequency frequency="10" timeUnit="SECONDS"/>
 			</scheduling-strategy>
 		</scheduler>
 		<logger level="INFO" doc:name="Logger"
-			doc:id="7c200079-01d2-4d61-b2b4-6ba090ec179c"
-			message="Starting scheduled consumption of retry-topic." />
-		<kafka:consume doc:name="Consume"
-			doc:id="ce641311-bcbf-4a23-ac72-4150e1c48736"
-			config-ref="Apache_Kafka_Consumer_retry" ackMode="AUTO" pollTimeout="180" pollTimeoutTimeUnit="SECONDS"/>
-		<ee:transform doc:name="Set payload" doc:id="861dc164-5498-4e8b-938f-5a5e96e770a2" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
-output application/json
----
-read(payload, (attributes.headers.'Content-Type' default "application/json"))]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-		<flow-ref doc:name="Invoke processing-logic"
-			doc:id="4d8b7eda-d193-46e7-bcf4-c71b7bccb9b4" name="processing-logic" />
-			   <logger level="INFO" doc:name="Logger" doc:id="67842ede-d394-47c7-86c7-d4a2f71bd427" message="Finished scheduled consumption of retry-topic."/>
+			doc:id="e8ff1946-06cd-414e-802a-7e23291cb906"
+			message="Scheduler triggered. Starting batch consumption from retry-topic." />
+
+		<!-- Initialize variables to track processing -->
+		<set-variable value="0" doc:name="Set processed count"
+			doc:id="59f46bef-9778-494d-b18f-9ccde8f40a11"
+			variableName="processedCount" />
+		<set-variable value="#[false]"
+			doc:name="Set topic empty flag"
+			doc:id="f21b3266-66bf-48d9-9306-cae58b6fb6d8"
+			variableName="topicEmpty" />
+
+		<!-- Generate a range for for-each. This represents the maximum number 
+			of messages we'll attempt to consume in one scheduler run. Adjust based on 
+			your needs. For most use cases, 1000 is more than enough. -->
+		<set-payload value="#[1 to 1000]"
+			doc:name="Set attempt range"
+			doc:id="ebf0bd40-31c5-4301-9c6f-66435cc519f3" />
+
+		<foreach doc:name="For Each Consume Attempt"
+			doc:id="e4cb7dda-f516-4354-91dd-67a1965706ac">
+			<!-- Only proceed if the topic is not empty -->
+			<choice doc:name="Check if topic is empty"
+				doc:id="9c9b29c2-f00d-404d-a57a-93a75914ef18">
+				<when expression="#[vars.topicEmpty == false]">
+					<try doc:name="Try to consume message"
+						doc:id="6585e1d8-220c-410c-88a4-53ddeb7f4b14">
+						<kafka:consume doc:name="Consume from retry-topic"
+							doc:id="08ac1ee4-0368-406e-9d12-370f02740707"
+							config-ref="Apache_Kafka_Consumer_retry" ackMode="AUTO"
+							pollTimeout="2" pollTimeoutTimeUnit="SECONDS" />
+
+						<!-- If we reach here, a message was successfully consumed -->
+						<flow-ref doc:name="Invoke processing-logic"
+							doc:id="70bf4a98-33d6-49b2-ae58-e3bee1977afd"
+							name="processing-logic" />
+
+						<!-- Increment processed count -->
+						<set-variable value="#[vars.processedCount + 1]"
+							doc:name="Increment processed count"
+							doc:id="6cd412c2-d3f2-46b4-829f-ce87c92e6579"
+							variableName="processedCount" />
+
+						<error-handler>
+							<on-error-continue enableNotifications="true"
+								logException="false" doc:name="Handle KAFKA:NOT_FOUND"
+								doc:id="39fde54b-0382-440e-9f6d-f0f1bd3e9e0b"
+								type="KAFKA:NOT_FOUND">
+								<!-- This error means no more messages are available -->
+								<logger level="INFO" doc:name="No more messages"
+									doc:id="53b2ef42-ced7-4daa-9dd5-6c9bbd4a2e4e"
+									message="No more messages available in retry-topic. Processed #[vars.processedCount] messages in this run." />
+								<set-variable value="true"
+									doc:name="Set topic empty"
+									doc:id="bdc42b2a-964e-4157-8b74-81c9f64aefbd"
+									variableName="topicEmpty" />
+							</on-error-continue>
+							<!-- Any other errors will propagate up and stop the processing -->
+						</error-handler>
+					</try>
+				</when>
+				<otherwise>
+					<!-- Topic is empty, skip remaining iterations -->
+					<logger level="DEBUG" doc:name="Skipping - topic empty"
+						doc:id="f4b4d708-cfa4-4d27-a1f0-c07e82626cf8"
+						message="Skipping consume attempt - topic is empty" />
+				</otherwise>
+			</choice>
+		</foreach>
+
+		<logger level="INFO" doc:name="Final summary"
+			doc:id="3f9edfec-e02a-4a18-88d6-707282151b6f"
+			message="Batch processing completed. Total messages processed: #[vars.processedCount]" />
+
+
+
 	</flow>
 </mule>
