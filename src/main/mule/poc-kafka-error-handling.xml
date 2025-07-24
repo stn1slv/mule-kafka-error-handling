@@ -226,9 +226,14 @@ output application/java
 output application/java
 ---
 false]]></ee:set-variable>
+				<ee:set-variable variableName="executionTimestamp" ><![CDATA[%dw 2.0
+output application/java
+---
+now()]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
 
+		<logger level="DEBUG" doc:name="DEBUG executionTimestamp" doc:id="4498e560-81ec-4b88-af42-8aa5e06f3f05" message="Message executionTimestamp: #[vars.executionTimestamp]"/>
 		<foreach doc:name="For Each Consume Attempt"
 			doc:id="86ea2185-e131-4acd-a2d8-5c85c7ef6b53">
 			<!-- Only proceed if the topic is not empty -->
@@ -245,6 +250,12 @@ false]]></ee:set-variable>
 						</kafka:consume>
 
 						<!-- Wrap processing in try-catch to handle business logic errors -->
+						<logger level="DEBUG" doc:name="DEBUG Message creationTimestamp" doc:id="f7f4b044-6fe5-4b69-abe2-a927115d5b85" message="Message creationTimestamp: #[attributes.creationTimestamp]"/>
+						<choice doc:name="Skipping a new messages" doc:id="737671df-d337-4aaf-ae49-fa5459d9203f" >
+							<when expression="#[attributes.creationTimestamp &gt;= vars.executionTimestamp]">
+								<raise-error doc:name="Skip a new produced retry messages" doc:id="2bb0f9ef-ac72-48fe-9bd7-583efb1b73a4" type="ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED" description="The message and the next one should be skipped"/>
+							</when>
+						</choice>
 						<try doc:name="Try processing message"
 							doc:id="aeaf9c2e-be03-4150-a90d-66fcf2ac9098">
 							<flow-ref doc:name="Invoke processing-logic"
@@ -308,6 +319,21 @@ false]]></ee:set-variable>
 									doc:id="fbf3f45b-1348-46d4-96ac-8913cad2c5bc"
 									variableName="topicEmpty" />
 							</on-error-continue>
+							<on-error-propagate enableNotifications="true"
+								logException="false" doc:name="Handle ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED"
+								doc:id="7da13908-ad74-4a04-bd43-d436d52a3ce0"
+								type="ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED">
+								<!-- This error means no more messages are available -->
+								<logger level="INFO" doc:name="No more messages"
+									doc:id="b669f729-323a-4dfe-af49-9aa150a12362"
+									message="No more messages available in retry-topic. Processed #[vars.processedCount] messages in this run." />
+								<set-variable value="true"
+									doc:name="Set topic empty"
+									doc:id="d3432ba5-2847-4015-937d-64968040659c"
+									variableName="topicEmpty" />
+								<logger level="INFO" doc:name="Final summary" doc:id="4634028d-825f-4da2-bf81-071df4b25a47" message="Batch processing completed. Successfully processed: #[vars.processedCount], Failed (retrying): #[vars.failedCount], Sent to DLQ: #[vars.dlqCount]" />
+							</on-error-propagate>
+							
 						</error-handler>
 					</try>
 				</when>
