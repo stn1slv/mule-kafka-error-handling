@@ -13,6 +13,7 @@ kafka:
       topic: "retry-topic"
       isolation-level: "READ_COMMITTED"
       poll-timeout: "10" # in seconds
+      recordLimit: "1"
   
   # Producer Configuration
   producer:
