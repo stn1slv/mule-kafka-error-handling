@@ -5,7 +5,8 @@
 	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
 	xmlns="http://www.mulesoft.org/schema/mule/core"
 	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
@@ -45,10 +46,14 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 			</kafka:topic-patterns>
 		</kafka:consumer-plaintext-connection>
 	</kafka:consumer-config>
-	<kafka:producer-config name="Apache_Kafka_Producer" doc:name="Apache Kafka Producer configuration" doc:id="4855a87d-16eb-4e61-a27d-cd5b8cd0367d" >
-		<kafka:producer-plaintext-connection >
-			<kafka:bootstrap-servers >
-				<kafka:bootstrap-server value="127.0.0.1:9094" />
+	<kafka:producer-config
+		name="Apache_Kafka_Producer"
+		doc:name="Apache Kafka Producer configuration"
+		doc:id="4855a87d-16eb-4e61-a27d-cd5b8cd0367d">
+		<kafka:producer-plaintext-connection>
+			<kafka:bootstrap-servers>
+				<kafka:bootstrap-server
+					value="127.0.0.1:9094" />
 			</kafka:bootstrap-servers>
 		</kafka:producer-plaintext-connection>
 	</kafka:producer-config>
@@ -178,7 +183,7 @@ read(payload, (attributes.headers.'Content-Type' default "application/json"))]]>
 	<flow name="poc-kafka-error-handlingFlow" doc:id="99375e54-1ac4-46b6-8fb7-4a39703adf01" initialState="started">
 		<scheduler doc:name="Scheduler" doc:id="9d7d0229-3bda-4f85-8c92-ef05b634687b">
 			<scheduling-strategy>
-				<fixed-frequency frequency="10" timeUnit="SECONDS"/>
+				<fixed-frequency frequency="1" timeUnit="MINUTES"/>
 			</scheduling-strategy>
 		</scheduler>
 		
@@ -186,7 +191,7 @@ read(payload, (attributes.headers.'Content-Type' default "application/json"))]]>
 			doc:id="a6f5a5a7-0bf4-4a25-be7c-0e6cd159a4eb"
 			message="Scheduler triggered. Starting batch consumption from retry-topic." />
 
-		<!-- Initialize variables to track processing -->
+		<!-- Initialize variables to track processing 
 		<set-variable value="0" doc:name="Set processed count"
 			doc:id="b3dc31ff-a3d7-4836-8bfc-5cf3c4b05595"
 			variableName="processedCount" />
@@ -199,10 +204,38 @@ read(payload, (attributes.headers.'Content-Type' default "application/json"))]]>
 		<set-variable value="#[false]" doc:name="Set topic empty flag"
 			doc:id="14c0a956-7f30-4bff-954d-90b153d84fce"
 			variableName="topicEmpty" />
-
-		<!-- Generate a range for for-each -->
 		<set-payload value="#[1 to 1000]" doc:name="Set attempt range"
 			doc:id="d0495966-17d6-4aa7-8723-e432ed00e04f" />
+			-->
+			
+			<!-- Initialize variables to track processing -->
+		<ee:transform doc:name="Initialize processing variables" doc:id="e1919b43-9d26-4599-af26-e35b8a104d53">
+			<ee:message>
+				<!-- Keep the message unchanged -->
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+1 to 1000]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="processedCount"><![CDATA[%dw 2.0
+output application/java
+---
+0]]></ee:set-variable>
+				<ee:set-variable variableName="failedCount"><![CDATA[%dw 2.0
+output application/java
+---
+0]]></ee:set-variable>
+				<ee:set-variable variableName="dlqCount"><![CDATA[%dw 2.0
+output application/java
+---
+0]]></ee:set-variable>
+				<ee:set-variable variableName="topicEmpty"><![CDATA[%dw 2.0
+output application/java
+---
+false]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
 
 		<foreach doc:name="For Each Consume Attempt" doc:id="86ea2185-e131-4acd-a2d8-5c85c7ef6b53">
 			<!-- Only proceed if the topic is not empty -->
