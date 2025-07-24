@@ -295,10 +295,6 @@ output application/java
 now()]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
-
-		<logger level="DEBUG" doc:name="DEBUG executionTimestamp"
-			doc:id="66394268-0623-4294-8f3d-a01d851efc5c"
-			message="Message executionTimestamp: #[vars.executionTimestamp]" />
 		<foreach doc:name="For Each Consume Attempt"
 			doc:id="948800e2-446a-4621-a687-7557b50e22bf">
 			<!-- Only proceed if the topic is not empty -->
@@ -317,10 +313,6 @@ now()]]></ee:set-variable>
 						</kafka:consume>
 
 						<!-- Wrap processing in try-catch to handle business logic errors -->
-						<logger level="DEBUG"
-							doc:name="DEBUG Message creationTimestamp"
-							doc:id="ff631f0a-7883-4921-8baa-9c0725314415"
-							message="Message creationTimestamp: #[attributes.creationTimestamp]" />
 						<choice doc:name="Skipping a new messages"
 							doc:id="bf64cb1d-a425-4eee-9746-257a4e6b7aa5">
 							<when
