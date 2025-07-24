@@ -12,7 +12,7 @@ kafka:
       group-id: "consumer-group-2"
       topic: "retry-topic"
       isolation-level: "READ_COMMITTED"
-      poll-timeout: "10"
+      poll-timeout: "10" # in seconds
   
   # Producer Configuration
   producer:
@@ -31,9 +31,9 @@ http:
 
 # Retry Configuration
 retry:
-  max-attempts: "3"
+  max-attempts: "4"
   scheduler:
-    frequency: "1"
+    frequency: "1" # in minutes
   
 # Processing Configuration
 processing:
