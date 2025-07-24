@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
 	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
 	xmlns="http://www.mulesoft.org/schema/mule/core"
 	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
 	<kafka:consumer-config
 		name="Apache_Kafka_Consumer_main"
 		doc:name="Apache Kafka Consumer configuration"
@@ -44,105 +45,245 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 			</kafka:topic-patterns>
 		</kafka:consumer-plaintext-connection>
 	</kafka:consumer-config>
+	<kafka:producer-config name="Apache_Kafka_Producer" doc:name="Apache Kafka Producer configuration" doc:id="4855a87d-16eb-4e61-a27d-cd5b8cd0367d" >
+		<kafka:producer-plaintext-connection >
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="127.0.0.1:9094" />
+			</kafka:bootstrap-servers>
+		</kafka:producer-plaintext-connection>
+	</kafka:producer-config>
+	<http:request-config name="HTTP_Request" doc:name="HTTP Request configuration" doc:id="8d274760-f746-40d1-8f8c-0ddf53d24851" >
+		<http:request-connection protocol="HTTPS" host="16e07b41f8ca41d49ebcdc7218078454.api.mockbin.io" port="443" />
+	</http:request-config>
 	<flow name="main-flow"
 		doc:id="cf5bfbae-007d-4585-bf3c-b06eb68ef442">
 		<kafka:message-listener
 			doc:name="Message listener"
 			doc:id="5e1274ed-b4db-4d7c-94bc-a69308b122b3"
 			config-ref="Apache_Kafka_Consumer_main" />
-		<flow-ref doc:name="Invoke processing-logic"
-			doc:id="698b88da-f568-4fa8-95e1-6d8e1f6843f0" name="processing-logic" />
+		<try doc:name="Try" doc:id="72071f3a-f9a4-4b5d-9418-e96a83a49e8a" >
+			<flow-ref doc:name="Invoke processing-logic" doc:id="698b88da-f568-4fa8-95e1-6d8e1f6843f0" name="processing-logic" />
+			
+			<error-handler>
+				<on-error-continue enableNotifications="true" logException="true"
+					doc:name="Handle processing errors" doc:id="1789349e-6ab5-42e5-99a8-9b1d42d6a454">
+					<logger level="ERROR" doc:name="Main processing failed"
+						message="Failed to process message from main-topic. Error: #[error.description]" />
+					<!-- Send to retry logic -->
+					<flow-ref doc:name="Handle retry logic" 
+						doc:id="9f4f0a44-d37b-4afb-98d2-a88945b5573b" name="retry-logic-flow" />
+				</on-error-continue>
+			</error-handler>
+		</try>
 	</flow>
+	
+		<!-- Retry Logic Flow -->
+	<sub-flow name="retry-logic-flow" doc:id="b700c866-fa96-47a3-ac6d-034ae051ea62">
+		<!-- Extract current retry count from headers -->
+		
+		<!-- Convert to number and increment -->
+		
+		<ee:transform doc:name="Get current retry count &amp; increment it" doc:id="a706a742-b337-409c-bb6f-86db930f8261" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="currentRetryCount" ><![CDATA[%dw 2.0
+output application/java
+---
+(attributes.headers.'X-Retry-Count' as String) as Number default 0]]></ee:set-variable>
+				<ee:set-variable variableName="newRetryCount" ><![CDATA[%dw 2.0
+output application/java
+---
+(((attributes.headers.'X-Retry-Count' as String) as Number default 0) + 1)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Retry info" 
+			doc:id="c8f23bcd-ac85-4e85-a8a2-1bb6e3070275"
+			message="Processing retry #[vars.newRetryCount] for message" />
+		
+		<choice doc:name="Check retry limit" doc:id="98ef30eb-923f-46a8-8102-6a6991e1a2d1">
+			<when expression="#[vars.newRetryCount &lt;= 3]">
+				<!-- Send to retry topic -->
+				<logger level="INFO" doc:name="Sending to retry topic" 
+					doc:id="b5055937-efd3-493a-a482-7ebcb301fdfb"
+					message="Sending message to retry-topic (attempt #[vars.newRetryCount])" />
+				
+				<kafka:publish doc:name="Publish to retry-topic"
+					doc:id="454e0354-f0a3-471f-a4e9-f3fd0f3b67b1"
+					config-ref="Apache_Kafka_Producer"
+					topic="retry-topic" key="#[attributes.key]">
+					<kafka:headers ><![CDATA[#[%dw 2.0
+import toString from dw::util::Coercions
+---
+{"X-Retry-Count": toString(vars.newRetryCount),
+ "X-Original-Error": error.description,
+ "X-Error-Type": error.errorType.identifier
+}]]]></kafka:headers>
+
+				</kafka:publish>
+			</when>
+			<otherwise>
+				<!-- Send to DLQ topic -->
+				<logger level="WARN" doc:name="Sending to DLQ" 
+					doc:id="90dde3a3-b719-4253-9749-60ac60780dbd"
+					message="Max retries exceeded. Sending message to DLQ topic" />
+				
+				<kafka:publish doc:name="Publish to DLQ"
+					doc:id="b454c189-da31-4ade-9540-a3ba47e86306"
+					config-ref="Apache_Kafka_Producer"
+					topic="dlq-topic" key="#[attributes.key]">
+					<kafka:headers ><![CDATA[#[%dw 2.0
+import toString from dw::util::Coercions
+---
+{"X-Retry-Count": toString(vars.newRetryCount),
+ "X-Original-Error": error.description,
+ "X-Error-Type": error.errorType.identifier
+}]]]></kafka:headers>
+				</kafka:publish>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	
 	<sub-flow name="processing-logic"
 		doc:id="2d2b8745-368d-47ee-97d7-fb2a114f6eac">
-		<logger level="INFO" doc:name="Logger"
-			doc:id="7a165b52-eb4e-45bb-bafd-37397b463707"
-			message="Processing message: #[payload]" />
+
+		<ee:transform doc:name="Parse payload"
+			doc:id="c52a1c63-41cc-4df6-87c4-57646e9b7407">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+read(payload, (attributes.headers.'Content-Type' default "application/json"))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+
+		<choice doc:name="Choice"
+			doc:id="0e063eb9-6a5f-4cd4-b9b9-33a36e7c9457">
+			<when expression='#[payload.address.country == "XYZ"]'>
+				<logger level="INFO" doc:name="FAILED CASE" doc:id="5065c9a4-b355-4c65-806e-e37295be77cf" message="Error message: #[payload]" />
+				<!-- [STUDIO:"Raise error"]<raise-error doc:name="Raise error" doc:id="bedd5fe8-04d6-49db-81d8-228960dec5b2" type="CONNECTIVITY:NETWORK" /> [STUDIO] -->
+				<http:request method="GET" doc:name="Getting HTTP 503" doc:id="3c3b7e73-cee1-4783-ab0a-d7284176ec45" config-ref="HTTP_Request" path="/"/>
+			</when>
+
+
+			<otherwise>
+				<logger level="INFO" doc:name="SUCCESSFUL CASE"
+					doc:id="7a165b52-eb4e-45bb-bafd-37397b463707"
+					message="Processing message: #[payload]" />
+			</otherwise>
+		</choice>
 	</sub-flow>
-	<flow name="poc-kafka-error-handlingFlow"
-		doc:id="01a1d226-841d-4b01-b270-9b5a743b596b">
-		<scheduler doc:name="Scheduler"
-			doc:id="b2f2a550-e771-4490-ae0e-531e84b1d4b2">
+	
+	<!-- Scheduled batch processing flow -->
+	<flow name="poc-kafka-error-handlingFlow" doc:id="99375e54-1ac4-46b6-8fb7-4a39703adf01" initialState="started">
+		<scheduler doc:name="Scheduler" doc:id="9d7d0229-3bda-4f85-8c92-ef05b634687b">
 			<scheduling-strategy>
 				<fixed-frequency frequency="10" timeUnit="SECONDS"/>
 			</scheduling-strategy>
 		</scheduler>
-		<logger level="INFO" doc:name="Logger"
-			doc:id="e8ff1946-06cd-414e-802a-7e23291cb906"
+		
+		<logger level="INFO" doc:name="Starting processing"
+			doc:id="a6f5a5a7-0bf4-4a25-be7c-0e6cd159a4eb"
 			message="Scheduler triggered. Starting batch consumption from retry-topic." />
 
 		<!-- Initialize variables to track processing -->
 		<set-variable value="0" doc:name="Set processed count"
-			doc:id="59f46bef-9778-494d-b18f-9ccde8f40a11"
+			doc:id="b3dc31ff-a3d7-4836-8bfc-5cf3c4b05595"
 			variableName="processedCount" />
-		<set-variable value="#[false]"
-			doc:name="Set topic empty flag"
-			doc:id="f21b3266-66bf-48d9-9306-cae58b6fb6d8"
+		<set-variable value="0" doc:name="Set failed count"
+			doc:id="39bacfe4-60c3-4070-a775-05c519c78a03"
+			variableName="failedCount" />
+		<set-variable value="0" doc:name="Set DLQ count"
+			doc:id="93979736-d5eb-4e61-ba2f-6c8352e0825a"
+			variableName="dlqCount" />
+		<set-variable value="#[false]" doc:name="Set topic empty flag"
+			doc:id="14c0a956-7f30-4bff-954d-90b153d84fce"
 			variableName="topicEmpty" />
 
-		<!-- Generate a range for for-each. This represents the maximum number 
-			of messages we'll attempt to consume in one scheduler run. Adjust based on 
-			your needs. For most use cases, 1000 is more than enough. -->
-		<set-payload value="#[1 to 1000]"
-			doc:name="Set attempt range"
-			doc:id="ebf0bd40-31c5-4301-9c6f-66435cc519f3" />
+		<!-- Generate a range for for-each -->
+		<set-payload value="#[1 to 1000]" doc:name="Set attempt range"
+			doc:id="d0495966-17d6-4aa7-8723-e432ed00e04f" />
 
-		<foreach doc:name="For Each Consume Attempt"
-			doc:id="e4cb7dda-f516-4354-91dd-67a1965706ac">
+		<foreach doc:name="For Each Consume Attempt" doc:id="86ea2185-e131-4acd-a2d8-5c85c7ef6b53">
 			<!-- Only proceed if the topic is not empty -->
-			<choice doc:name="Check if topic is empty"
-				doc:id="9c9b29c2-f00d-404d-a57a-93a75914ef18">
+			<choice doc:name="Check if topic is empty" doc:id="f9f321ce-ac65-4ec2-a8f3-c4c28808d2ea">
 				<when expression="#[vars.topicEmpty == false]">
-					<try doc:name="Try to consume message"
-						doc:id="6585e1d8-220c-410c-88a4-53ddeb7f4b14">
+					<try doc:name="Try to consume message" doc:id="0210adf4-04c8-41eb-9043-f0f1597579a7">
 						<kafka:consume doc:name="Consume from retry-topic"
-							doc:id="08ac1ee4-0368-406e-9d12-370f02740707"
+							doc:id="c70a667c-4d37-4ec8-a885-4ec4f2e46068"
 							config-ref="Apache_Kafka_Consumer_retry" ackMode="AUTO"
-							pollTimeout="2" pollTimeoutTimeUnit="SECONDS" />
+							pollTimeout="10" pollTimeoutTimeUnit="SECONDS" />
 
-						<!-- If we reach here, a message was successfully consumed -->
-						<flow-ref doc:name="Invoke processing-logic"
-							doc:id="70bf4a98-33d6-49b2-ae58-e3bee1977afd"
-							name="processing-logic" />
-
-						<!-- Increment processed count -->
-						<set-variable value="#[vars.processedCount + 1]"
-							doc:name="Increment processed count"
-							doc:id="6cd412c2-d3f2-46b4-829f-ce87c92e6579"
-							variableName="processedCount" />
+						<!-- Wrap processing in try-catch to handle business logic errors -->
+						<try doc:name="Try processing message" doc:id="aeaf9c2e-be03-4150-a90d-66fcf2ac9098">
+							<flow-ref doc:name="Invoke processing-logic"
+								doc:id="d751f962-f7b3-4329-800a-d5ed602c80d9"
+								name="processing-logic" />
+							
+							<!-- Increment processed count only on success -->
+							<set-variable value="#[vars.processedCount + 1]"
+								doc:name="Increment processed count"
+								doc:id="2a2b1b93-cc95-4488-a8da-43af09144be1"
+								variableName="processedCount" />
+							
+							<logger level="INFO" doc:name="Processing succeeded"
+								message="Successfully processed retry message with retry count: #[attributes.headers.'X-Retry-Count' default '0']" />
+							
+							<error-handler>
+								<on-error-continue enableNotifications="true" logException="true" 
+									doc:name="Handle processing errors" doc:id="567c8f4d-aee2-4ded-870b-efcb13fdb46e">
+									<logger level="ERROR" doc:name="Processing failed"
+										message="Failed to process retry message. Error: #[error.description]" />
+									
+									<!-- Handle retry logic -->
+									<flow-ref doc:name="Handle retry logic" 
+										doc:id="2b414ae6-0a07-485c-990e-98f5ac2c4b1e" name="retry-logic-flow" />
+									
+									<!-- Check what happened and increment appropriate counter -->
+									<set-variable value="#[attributes.headers.'X-Retry-Count' default '0']" 
+										doc:name="Get retry count for tracking" 
+										variableName="retryCountForTracking" />
+									
+									<choice doc:name="Track retry vs DLQ" doc:id="081e3071-f2bb-42d7-a3e2-6c1c4d51a74a">
+										<when expression="#[(vars.retryCountForTracking as Number) + 1 > 3]">
+											<set-variable value="#[vars.dlqCount + 1]"
+												doc:name="Increment DLQ count" variableName="dlqCount" />
+										</when>
+										<otherwise>
+											<set-variable value="#[vars.failedCount + 1]"
+												doc:name="Increment failed count" variableName="failedCount" />
+										</otherwise>
+									</choice>
+								</on-error-continue>
+							</error-handler>
+						</try>
 
 						<error-handler>
-							<on-error-continue enableNotifications="true"
-								logException="false" doc:name="Handle KAFKA:NOT_FOUND"
-								doc:id="39fde54b-0382-440e-9f6d-f0f1bd3e9e0b"
+							<on-error-continue enableNotifications="true" logException="false" 
+								doc:name="Handle KAFKA:NOT_FOUND" doc:id="7b726763-4af4-4257-9c56-a7e9ba3030fa"
 								type="KAFKA:NOT_FOUND">
 								<!-- This error means no more messages are available -->
 								<logger level="INFO" doc:name="No more messages"
-									doc:id="53b2ef42-ced7-4daa-9dd5-6c9bbd4a2e4e"
+									doc:id="5fbf9fa2-097c-4235-9b00-ac0150719630"
 									message="No more messages available in retry-topic. Processed #[vars.processedCount] messages in this run." />
-								<set-variable value="true"
-									doc:name="Set topic empty"
-									doc:id="bdc42b2a-964e-4157-8b74-81c9f64aefbd"
+								<set-variable value="true" doc:name="Set topic empty"
+									doc:id="fbf3f45b-1348-46d4-96ac-8913cad2c5bc"
 									variableName="topicEmpty" />
 							</on-error-continue>
-							<!-- Any other errors will propagate up and stop the processing -->
 						</error-handler>
 					</try>
 				</when>
 				<otherwise>
 					<!-- Topic is empty, skip remaining iterations -->
 					<logger level="DEBUG" doc:name="Skipping - topic empty"
-						doc:id="f4b4d708-cfa4-4d27-a1f0-c07e82626cf8"
+						doc:id="240fdc52-fb83-4130-bfe7-1aa8c9e403a8"
 						message="Skipping consume attempt - topic is empty" />
 				</otherwise>
 			</choice>
 		</foreach>
 
 		<logger level="INFO" doc:name="Final summary"
-			doc:id="3f9edfec-e02a-4a18-88d6-707282151b6f"
-			message="Batch processing completed. Total messages processed: #[vars.processedCount]" />
-
-
-
+			doc:id="5dab303d-a598-4ae5-b120-98560aaf79a7"
+			message="Batch processing completed. Successfully processed: #[vars.processedCount], Failed (retrying): #[vars.failedCount], Sent to DLQ: #[vars.dlqCount]" />
 	</flow>
 </mule>
