@@ -35,6 +35,10 @@ retry:
   max-attempts: "4"
   scheduler:
     frequency: "1" # in minutes
+  # Retryable errors (comma-separated)
+  retryable-errors: "HTTP:TIMEOUT,HTTP:CONNECTIVITY,HTTP:SERVICE_UNAVAILABLE,KAFKA:TIMEOUT,KAFKA:CONNECTIVITY,REDELIVERY_EXHAUSTED"
+  # Non-retryable errors (comma-separated) - these go directly to DLQ
+  non-retryable-errors: "HTTP:BAD_REQUEST,HTTP:UNAUTHORIZED,HTTP:FORBIDDEN,HTTP:NOT_FOUND,TRANSFORMATION,VALIDATION,EXPRESSION,SECURITY"
   
 # Processing Configuration
 processing:

@@ -38,7 +38,7 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 		doc:name="Apache Kafka Consumer configuration"
 		doc:id="2cf5b766-3dcc-42ed-9203-78b5d795ec46">
 		<kafka:consumer-plaintext-connection
-			groupId="${kafka.consumer.retry.group-id}" 
+			groupId="${kafka.consumer.retry.group-id}"
 			isolationLevel="${kafka.consumer.retry.isolation-level}"
 			recordLimit="${kafka.consumer.retry.recordLimit}">
 			<kafka:bootstrap-servers>
@@ -99,13 +99,11 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 		</try>
 	</flow>
 
-	<!-- Retry Logic Flow -->
-
 	<sub-flow name="processing-logic"
-		doc:id="378fab08-529d-4adf-9912-11767d78cc50">
+		doc:id="481b92ef-4791-46a9-938f-ca2cd750a86a">
 
 		<ee:transform doc:name="Parse payload"
-			doc:id="59ac6852-b271-4d01-9879-83f83d03fcec">
+			doc:id="b4a0605e-1848-4d47-bf28-ab196496ed34">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -115,32 +113,36 @@ read(payload, (attributes.headers.'Content-Type' default "application/json"))]]>
 		</ee:transform>
 
 		<choice doc:name="Choice"
-			doc:id="d348cba7-c5c8-42b5-b035-4590b074a173">
+			doc:id="2d993ed2-edac-48c4-a86b-cbe527ba7c5f">
 			<when
 				expression='#[payload.address.country == p("processing.error-country")]'>
 				<logger level="INFO" doc:name="FAILED CASE"
-					doc:id="b239e956-4bdf-45e9-9aa5-efda343f2ba2"
+					doc:id="7d38488f-d6aa-4be6-bd64-83032f83fb61"
 					message="Error message: #[payload]" />
 				<http:request method="GET" doc:name="Getting HTTP 503"
-					doc:id="92104420-5f16-4f33-a133-51c365796977"
+					doc:id="b1b86b4e-dba1-45e2-a51f-6fedcfc32072"
 					config-ref="HTTP_Request" path="/" />
 			</when>
-
+			<!-- Add more test cases for different error types -->
 			<otherwise>
 				<logger level="INFO" doc:name="SUCCESSFUL CASE"
-					doc:id="7e0b9f20-48fd-4ea0-a078-3f8df3b73998"
+					doc:id="05b01570-3eb1-43a1-99f3-a8f15973df31"
 					message="Processing message: #[payload]" />
 			</otherwise>
 		</choice>
 	</sub-flow>
 
-	<!-- Scheduled batch processing flow -->
 	<sub-flow name="retry-logic-flow"
-		doc:id="cafc48c5-6f3f-4885-9aeb-68dedd8eac9e">
+		doc:id="c03802b2-2b07-482c-84f2-c255d4bbcf5a">
+
+		<!-- First classify the error -->
+		<flow-ref doc:name="Classify Error"
+			doc:id="8c144d54-6b5c-4bff-9270-bb7b0ce1184a"
+			name="classify-error-flow" />
 
 		<ee:transform
 			doc:name="Get current retry count &amp; increment it"
-			doc:id="81cd9de8-6db4-42d8-902f-382b085732a5">
+			doc:id="c17bd3b3-44be-44a2-8dbd-f1f117a9e9e2">
 			<ee:message>
 			</ee:message>
 			<ee:variables>
@@ -154,51 +156,94 @@ output application/java
 (((attributes.headers.'X-Retry-Count' as String) as Number default 0) + 1)]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
+
 		<logger level="INFO" doc:name="Retry info"
-			doc:id="99eb027f-4091-4dc0-b084-abecc287ea76"
-			message="Processing retry #[vars.newRetryCount] for message" />
+			doc:id="7f6d60e5-4670-44eb-95bd-c6e66cb83788"
+			message="Processing retry #[vars.newRetryCount] for message. Error Type: #[vars.fullErrorType], IsNonRetryable: #[vars.isNonRetryable]" />
 
-		<choice doc:name="Check retry limit"
-			doc:id="5ca3ad99-3291-434e-80c5-07a2a947e4f4">
-			<when
-				expression="#[vars.newRetryCount &lt;= p('retry.max-attempts')]">
-				<!-- Send to retry topic -->
-				<logger level="INFO" doc:name="Sending to retry topic"
-					doc:id="b397e7e0-e991-4da4-8385-41c72818cc7a"
-					message="Sending message to retry-topic (attempt #[vars.newRetryCount])" />
+		<!-- Check if error is non-retryable -->
+		<choice doc:name="Check Error Type"
+			doc:id="03ffde36-7d74-434f-90ac-485f55d2bd00">
+			<when expression="#[vars.isNonRetryable == true]">
+				<!-- Send directly to DLQ for non-retryable errors -->
+				<logger level="WARN"
+					doc:name="Non-retryable error - sending to DLQ"
+					doc:id="5823caf1-f479-4f5d-996e-51992df49838"
+					message="Non-retryable error detected (#[vars.fullErrorType]). Sending message directly to DLQ topic" />
 
-				<kafka:publish doc:name="Publish to retry-topic"
-					doc:id="dbcf4989-6f2c-41f3-b1da-060620fb2dc1"
-					config-ref="Apache_Kafka_Producer"
-					topic="${kafka.producer.retry-topic}" key="#[attributes.key]">
-					<kafka:headers><![CDATA[#[%dw 2.0
-import toString from dw::util::Coercions
----
-{"X-Retry-Count": toString(vars.newRetryCount),
- "X-Original-Error": error.description,
- "X-Error-Type": error.errorType.identifier
-}]]]></kafka:headers>
-
-				</kafka:publish>
-			</when>
-			<otherwise>
-				<!-- Send to DLQ topic -->
-				<logger level="WARN" doc:name="Sending to DLQ"
-					doc:id="b9441ae1-cdee-43b1-b3e0-082d8043d06f"
-					message="Max retries exceeded. Sending message to DLQ topic" />
-
-				<kafka:publish doc:name="Publish to DLQ"
-					doc:id="550b5e46-ffb9-4b93-9665-3c9ffbc8848b"
+				<kafka:publish
+					doc:name="Publish to DLQ (Non-retryable)"
+					doc:id="9acd781e-478a-412d-9577-fb3eb008eb49"
 					config-ref="Apache_Kafka_Producer"
 					topic="${kafka.producer.dlq-topic}" key="#[attributes.key]">
 					<kafka:headers><![CDATA[#[%dw 2.0
 import toString from dw::util::Coercions
 ---
-{"X-Retry-Count": toString(vars.newRetryCount),
- "X-Original-Error": error.description,
- "X-Error-Type": error.errorType.identifier
+{
+    "X-Retry-Count": toString(vars.newRetryCount),
+    "X-Original-Error": error.description,
+    "X-Error-Type": error.errorType.identifier,
+    "X-Error-Namespace": error.errorType.namespace,
+    "X-Full-Error-Type": vars.fullErrorType,
+    "X-Failure-Reason": "NON_RETRYABLE_ERROR",
+    "X-Timestamp": now() as String
 }]]]></kafka:headers>
 				</kafka:publish>
+			</when>
+			<otherwise>
+				<!-- Original retry logic for retryable errors -->
+				<choice doc:name="Check retry limit"
+					doc:id="733e6a16-6e7a-407b-aedf-31530401bfbf">
+					<when
+						expression="#[vars.newRetryCount &lt;= p('retry.max-attempts')]">
+						<!-- Send to retry topic -->
+						<logger level="INFO" doc:name="Sending to retry topic"
+							doc:id="0115c908-b412-43b4-99f6-4d338125ba60"
+							message="Sending message to retry-topic (attempt #[vars.newRetryCount]) for retryable error: #[vars.fullErrorType]" />
+
+						<kafka:publish doc:name="Publish to retry-topic"
+							doc:id="58851448-593f-49ba-91b5-14d744fd4af4"
+							config-ref="Apache_Kafka_Producer"
+							topic="${kafka.producer.retry-topic}" key="#[attributes.key]">
+							<kafka:headers><![CDATA[#[%dw 2.0
+import toString from dw::util::Coercions
+---
+{
+    "X-Retry-Count": toString(vars.newRetryCount),
+    "X-Original-Error": error.description,
+    "X-Error-Type": error.errorType.identifier,
+    "X-Error-Namespace": error.errorType.namespace,
+    "X-Full-Error-Type": vars.fullErrorType,
+    "X-Failure-Reason": "RETRYABLE_ERROR",
+    "X-Timestamp": now() as String
+}]]]></kafka:headers>
+						</kafka:publish>
+					</when>
+					<otherwise>
+						<!-- Send to DLQ topic after max retries -->
+						<logger level="WARN" doc:name="Sending to DLQ"
+							doc:id="4695c109-216f-4595-a9d5-ad65f7506d1d"
+							message="Max retries exceeded for retryable error (#[vars.fullErrorType]). Sending message to DLQ topic" />
+
+						<kafka:publish doc:name="Publish to DLQ"
+							doc:id="c2b8cfad-9289-44cc-b4e1-c10caf89b5f6"
+							config-ref="Apache_Kafka_Producer"
+							topic="${kafka.producer.dlq-topic}" key="#[attributes.key]">
+							<kafka:headers><![CDATA[#[%dw 2.0
+import toString from dw::util::Coercions
+---
+{
+    "X-Retry-Count": toString(vars.newRetryCount),
+    "X-Original-Error": error.description,
+    "X-Error-Type": error.errorType.identifier,
+    "X-Error-Namespace": error.errorType.namespace,
+    "X-Full-Error-Type": vars.fullErrorType,
+    "X-Failure-Reason": "MAX_RETRIES_EXCEEDED",
+    "X-Timestamp": now() as String
+}]]]></kafka:headers>
+						</kafka:publish>
+					</otherwise>
+				</choice>
 			</otherwise>
 		</choice>
 	</sub-flow>
@@ -384,4 +429,59 @@ now()]]></ee:set-variable>
 			doc:id="2c0836ca-0d10-4aae-8854-a20c27b302b0"
 			message="Batch processing completed. Successfully processed: #[vars.processedCount], Failed (retrying): #[vars.failedCount], Sent to DLQ: #[vars.dlqCount]" />
 	</flow>
+
+	<!-- Error Classification Sub-flow -->
+	<sub-flow name="classify-error-flow"
+		doc:id="154c0717-7922-4653-b05f-8445873d2e89">
+		<ee:transform doc:name="Classify Error Type"
+			doc:id="196b0177-cbf7-48cc-8af7-28adae689800">
+			<ee:message>
+				<!-- Keep the message unchanged -->
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="errorType"><![CDATA[%dw 2.0
+output application/java
+---
+error.errorType.identifier default "UNKNOWN"]]></ee:set-variable>
+				<ee:set-variable variableName="errorNamespace"><![CDATA[%dw 2.0
+output application/java
+---
+error.errorType.namespace default "MULE"]]></ee:set-variable>
+				<ee:set-variable variableName="fullErrorType"><![CDATA[%dw 2.0
+output application/java
+---
+(error.errorType.namespace default "MULE") ++ ":" ++ (error.errorType.identifier default "UNKNOWN")]]></ee:set-variable>
+				<ee:set-variable variableName="retryableErrors"><![CDATA[%dw 2.0
+output application/java
+---
+(p('retry.retryable-errors') default "" splitBy ",") map trim($) filter ($ != "")]]></ee:set-variable>
+				<ee:set-variable variableName="nonRetryableErrors"><![CDATA[%dw 2.0
+output application/java
+---
+(p('retry.non-retryable-errors') default "" splitBy ",") map trim($) filter ($ != "")]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+
+		<!-- Second transform to evaluate boolean conditions -->
+		<ee:transform doc:name="Evaluate Error Classification"
+			doc:id="82c7aa2d-7a11-4b4e-a3d5-918fb385dccc">
+			<ee:message>
+				<!-- Keep the message unchanged -->
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="isNonRetryable"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.nonRetryableErrors contains vars.fullErrorType) or (vars.nonRetryableErrors contains vars.errorType)]]></ee:set-variable>
+				<ee:set-variable variableName="isRetryable"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.retryableErrors contains vars.fullErrorType) or (vars.retryableErrors contains vars.errorType)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+
+		<logger level="DEBUG" doc:name="Error Classification Debug"
+			doc:id="ecfb6f89-5ed8-4b42-9eaa-78b5663401d1"
+			message="Error classification - Type: #[vars.fullErrorType], IsNonRetryable: #[vars.isNonRetryable], IsRetryable: #[vars.isRetryable], RetryableErrors: #[vars.retryableErrors], NonRetryableErrors: #[vars.nonRetryableErrors]" />
+	</sub-flow>
 </mule>
