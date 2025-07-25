@@ -26,14 +26,15 @@ kafka:
 
 # HTTP Configuration
 http:
-  host: "16e07b41f8ca41d49ebcdc7218078454.api.mockbin.io" # 503
-  #host: "e88bab772c344d63885f3661754acc19.api.mockbin.io" # 400
+  host: "16e07b41f8ca41d49ebcdc7218078454.api.mockbin.io" # Returns HTTP 503 (retryable)
+  #host: "13a0214f061642c18a364de82143230e.api.mockbin.io" # Returns HTTP 400 (non-retryable)
   port: "443"
+  path: "/"
   protocol: "HTTPS"
 
 # Retry Configuration
 retry:
-  max-attempts: "4"
+  max-attempts: "3"
   scheduler:
     frequency: "1" # in minutes
   # Retryable errors (comma-separated)

@@ -119,9 +119,9 @@ read(payload, (attributes.headers.'Content-Type' default "application/json"))]]>
 				<logger level="INFO" doc:name="FAILED CASE"
 					doc:id="7d38488f-d6aa-4be6-bd64-83032f83fb61"
 					message="Error message: #[payload]" />
-				<http:request method="GET" doc:name="Getting HTTP Error"
+				<http:request method="POST" doc:name="Getting HTTP Error"
 					doc:id="b1b86b4e-dba1-45e2-a51f-6fedcfc32072"
-					config-ref="HTTP_Request" path="/" />
+					config-ref="HTTP_Request" path="${http.path}" />
 			</when>
 			<!-- Add more test cases for different error types -->
 			<otherwise>
@@ -178,10 +178,11 @@ output application/java
 					topic="${kafka.producer.dlq-topic}" key="#[attributes.key]">
 					<kafka:headers><![CDATA[#[%dw 2.0
 import toString from dw::util::Coercions
+import substring from dw::core::Strings
 ---
 {
     "X-Retry-Count": toString(vars.newRetryCount),
-    "X-Original-Error": error.description,
+    "X-Original-Error": substring(toString(error.description ++ "\n" ++ write(error.errorMessage.payload, "application/json")), 0, 300),
     "X-Error-Type": error.errorType.identifier,
     "X-Error-Namespace": error.errorType.namespace,
     "X-Full-Error-Type": vars.fullErrorType,
@@ -207,10 +208,11 @@ import toString from dw::util::Coercions
 							topic="${kafka.producer.retry-topic}" key="#[attributes.key]">
 							<kafka:headers><![CDATA[#[%dw 2.0
 import toString from dw::util::Coercions
+import substring from dw::core::Strings
 ---
 {
     "X-Retry-Count": toString(vars.newRetryCount),
-    "X-Original-Error": error.description,
+    "X-Original-Error": substring(toString(error.description ++ "\n" ++ write(error.errorMessage.payload, "application/json")), 0, 300),
     "X-Error-Type": error.errorType.identifier,
     "X-Error-Namespace": error.errorType.namespace,
     "X-Full-Error-Type": vars.fullErrorType,
@@ -231,10 +233,11 @@ import toString from dw::util::Coercions
 							topic="${kafka.producer.dlq-topic}" key="#[attributes.key]">
 							<kafka:headers><![CDATA[#[%dw 2.0
 import toString from dw::util::Coercions
+import substring from dw::core::Strings
 ---
 {
     "X-Retry-Count": toString(vars.newRetryCount),
-    "X-Original-Error": error.description,
+    "X-Original-Error": substring(toString(error.description ++ "\n" ++ write(error.errorMessage.payload, "application/json")), 0, 300),
     "X-Error-Type": error.errorType.identifier,
     "X-Error-Namespace": error.errorType.namespace,
     "X-Full-Error-Type": vars.fullErrorType,
