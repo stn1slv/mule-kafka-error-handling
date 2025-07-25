@@ -26,7 +26,8 @@ kafka:
 
 # HTTP Configuration
 http:
-  host: "16e07b41f8ca41d49ebcdc7218078454.api.mockbin.io"
+  host: "16e07b41f8ca41d49ebcdc7218078454.api.mockbin.io" # 503
+  #host: "e88bab772c344d63885f3661754acc19.api.mockbin.io" # 400
   port: "443"
   protocol: "HTTPS"
 

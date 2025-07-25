@@ -119,7 +119,7 @@ read(payload, (attributes.headers.'Content-Type' default "application/json"))]]>
 				<logger level="INFO" doc:name="FAILED CASE"
 					doc:id="7d38488f-d6aa-4be6-bd64-83032f83fb61"
 					message="Error message: #[payload]" />
-				<http:request method="GET" doc:name="Getting HTTP 503"
+				<http:request method="GET" doc:name="Getting HTTP Error"
 					doc:id="b1b86b4e-dba1-45e2-a51f-6fedcfc32072"
 					config-ref="HTTP_Request" path="/" />
 			</when>
