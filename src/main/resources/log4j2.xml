@@ -56,7 +56,7 @@
 			level="ERROR" additivity="false">
 			<Filters>
 				<RegexFilter
-					regex="(?s).*ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED.*"
+					regex="(?s).*ERROR-HANDLING:MESSAGE-SHOULD-BE-SKIPPED.*"
 					onMatch="DENY" onMismatch="ACCEPT" />
 			</Filters>
 			<AppenderRef ref="Local" />

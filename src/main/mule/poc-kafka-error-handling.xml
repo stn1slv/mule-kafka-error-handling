@@ -323,7 +323,7 @@ now()]]></ee:set-variable>
 								<raise-error
 									doc:name="Skip a new produced retry messages"
 									doc:id="1e36529b-63f3-4483-bf9f-75e2785351bf"
-									type="ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED"
+									type="ERROR-HANDLING:MESSAGE-SHOULD-BE-SKIPPED"
 									description="The message and the next one should be skipped" />
 							</when>
 						</choice>
@@ -392,9 +392,9 @@ now()]]></ee:set-variable>
 							</on-error-continue>
 							<on-error-propagate enableNotifications="true"
 								logException="false"
-								doc:name="Handle ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED"
+								doc:name="Handle ERROR-HANDLING:MESSAGE-SHOULD-BE-SKIPPED"
 								doc:id="814469de-e4ce-4bb2-99f1-607a1fb6c1c2"
-								type="ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED">
+								type="ERROR-HANDLING:MESSAGE-SHOULD-BE-SKIPPED">
 								<!-- This error means no more messages are available -->
 								<logger level="INFO" doc:name="No more messages"
 									doc:id="735027d5-aa06-4433-89e2-00cba94456cb"
