@@ -9,16 +9,16 @@
 
 	<Appenders>
 		<RollingFile name="Local"
-			fileName="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}exp-omnipos.log"
-			filePattern="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}exp-omnipos-%i.log">
+			fileName="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}poc-kafka-error-handling.log"
+			filePattern="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}poc-kafka-error-handling-%i.log">
 			<PatternLayout
 				pattern="%-5p %d [%t] [event: %X{correlationId}] %c: %m%n" />
 			<SizeBasedTriggeringPolicy size="10 MB" />
 			<DefaultRolloverStrategy max="10" />
 		</RollingFile>
 		<RollingFile name="siemdata"
-			fileName="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}exp-omnipos-siem.log"
-			filePattern="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}exp-omnipos-siem-%i.log">
+			fileName="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}poc-kafka-error-handling-siem.log"
+			filePattern="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}poc-kafka-error-handling-siem-%i.log">
 			<PatternLayout
 				pattern="%-5p %d [%t] [event: %X{correlationId}] %c: %m%n" />
 			<SizeBasedTriggeringPolicy size="10 MB" />
