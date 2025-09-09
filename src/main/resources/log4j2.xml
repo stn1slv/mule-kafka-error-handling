@@ -42,7 +42,7 @@
 			AsyncLogger configuration for DefaultExceptionListener to filter out technical exceptions.
 			
 			This logger specifically handles exceptions from Mule's DefaultExceptionListener and filters out
-			technical exceptions marked with "ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED" pattern.
+			technical exceptions marked with "ERROR-HANDLING:MESSAGE-SHOULD-BE-SKIPPED" pattern.
 			
 			The RegexFilter is configured to:
 			- DENY log entries containing the technical exception marker "ERROR-HANDING:MESSAGE-SHOULD-BE-SKIPPED"
