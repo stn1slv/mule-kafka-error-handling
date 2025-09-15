@@ -16,14 +16,6 @@
 			<SizeBasedTriggeringPolicy size="10 MB" />
 			<DefaultRolloverStrategy max="10" />
 		</RollingFile>
-		<RollingFile name="siemdata"
-			fileName="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}poc-kafka-error-handling-siem.log"
-			filePattern="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}poc-kafka-error-handling-siem-%i.log">
-			<PatternLayout
-				pattern="%-5p %d [%t] [event: %X{correlationId}] %c: %m%n" />
-			<SizeBasedTriggeringPolicy size="10 MB" />
-			<DefaultRolloverStrategy max="10" />
-		</RollingFile>
 	</Appenders>
 	<Loggers>
 
@@ -61,14 +53,6 @@
 			</Filters>
 			<AppenderRef ref="Local" />
 		</AsyncLogger>
-
-		<AsyncLogger name="com.rbs.siem.production" level="INFO"
-			additivity="false">
-			<AppenderRef ref="siemdata" />
-		</AsyncLogger>
-		<AsyncRoot level="INFO">
-			<AppenderRef ref="Local" />
-		</AsyncRoot>
 	</Loggers>
 
 </Configuration>
