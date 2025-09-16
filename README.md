@@ -187,26 +187,34 @@ The application includes built-in error simulation for testing:
 
 ### Prerequisites
 
-- Mule Runtime 4.9.9+
-- Apache Kafka 2.8+
-- Java 8+
+- Mule Runtime 4.9+
+- Docker
+- Java 17
 
 ### Setup
 
-1. **Start Kafka**:
+1. **Start Kafka with Docker**:
    ```bash
-   # Start Zookeeper
-   bin/zookeeper-server-start.sh config/zookeeper.properties
-   
-   # Start Kafka
-   bin/kafka-server-start.sh config/server.properties
+   docker run --name kafka \
+     --restart always \
+     -p 9092:9092 \
+     -p 9094:9094 \
+     -e KAFKA_CFG_NODE_ID=0 \
+     -e KAFKA_CFG_PROCESS_ROLES=broker,controller \
+     -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094 \
+     -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094 \
+     -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT \
+     -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093 \
+     -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+     bitnami/kafka:4.0
    ```
 
 2. **Create Topics**:
    ```bash
-   bin/kafka-topics.sh --create --topic main-topic --bootstrap-server localhost:9094
-   bin/kafka-topics.sh --create --topic retry-topic --bootstrap-server localhost:9094
-   bin/kafka-topics.sh --create --topic dlq-topic --bootstrap-server localhost:9094
+   # Create topics using Docker exec
+   docker exec -it kafka kafka-topics.sh --create --topic main-topic --bootstrap-server localhost:9094
+   docker exec -it kafka kafka-topics.sh --create --topic retry-topic --bootstrap-server localhost:9094
+   docker exec -it kafka kafka-topics.sh --create --topic dlq-topic --bootstrap-server localhost:9094
    ```
 
 3. **Configure Bootstrap Server**: Update `kafka.bootstrap-servers` in `application.yaml`
@@ -218,16 +226,16 @@ The application includes built-in error simulation for testing:
 1. **Send Test Message**:
    ```bash
    echo '{"id": 1, "name": "Test", "address": {"country": "XYZ"}}' | \
-   kafka-console-producer.sh --topic main-topic --bootstrap-server localhost:9094
+   docker exec -i kafka kafka-console-producer.sh --topic main-topic --bootstrap-server localhost:9094
    ```
 
 2. **Monitor Topics**:
    ```bash
    # Watch retry topic
-   kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094
+   docker exec -it kafka kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094
    
    # Watch DLQ topic  
-   kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094
+   docker exec -it kafka kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094
    ```
 
 ## Monitoring and Observability
