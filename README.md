@@ -225,18 +225,48 @@ The application includes built-in error simulation for testing:
 
 1. **Send Test Message**:
    ```bash
-   echo '{"id": 1, "name": "Test", "address": {"country": "XYZ"}}' | \
-   docker exec -i kafka kafka-console-producer.sh --topic main-topic --bootstrap-server localhost:9094
+   echo "$(date +%s%N):{\"id\": 1, \"name\": \"Test\", \"address\": {\"country\": \"XYZ\"}}" | \
+   docker exec -i kafka kafka-console-producer.sh --topic main-topic --bootstrap-server localhost:9094 \
+     --property parse.key=true --property key.separator=:
    ```
 
 2. **Monitor Topics**:
    ```bash
-   # Watch retry topic
-   docker exec -it kafka kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094
+   # Watch retry topic (clean formatted output)
+   docker exec -it kafka kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094 \
+     --property print.headers=true --property print.timestamp=true \
+     --property headers.separator=" | "
    
-   # Watch DLQ topic  
-   docker exec -it kafka kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094
+   # Watch DLQ topic (clean formatted output)
+   docker exec -it kafka kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094 \
+     --property print.headers=true --property print.timestamp=true \
+     --property headers.separator=" | "
+   
+   # Watch retry topic (headers only, no payload)
+   docker exec -it kafka kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094 \
+     --property print.headers=true --property print.value=false \
+     --property print.timestamp=true --property headers.separator=$'\n  '
+   
+   # Watch DLQ topic (headers only, no payload)
+   docker exec -it kafka kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094 \
+     --property print.headers=true --property print.value=false \
+     --property print.timestamp=true --property headers.separator=$'\n  '
    ```
+
+### Header Monitoring
+
+The commands above show your custom error tracking headers:
+- `X-Retry-Count`: Current retry attempt number
+- `X-Error-Type`: MuleSoft error type identifier  
+- `X-Failure-Reason`: Categorized failure reason (RETRYABLE_ERROR, NON_RETRYABLE_ERROR, MAX_RETRIES_EXCEEDED)
+- `X-Timestamp`: Processing timestamp
+- `X-Original-Error`: Truncated error description
+
+Example output:
+```
+CreateTime:1726495954163 | X-Retry-Count:2 | X-Error-Type:SERVICE_UNAVAILABLE | X-Failure-Reason:RETRYABLE_ERROR
+{"id": 1, "name": "Test3", "address": {"country": "XYZ"}}
+```
 
 ## Monitoring and Observability
 
