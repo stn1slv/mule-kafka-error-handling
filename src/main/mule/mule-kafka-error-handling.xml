@@ -176,7 +176,7 @@ output application/java
 					doc:name="Publish to DLQ (Non-retryable)"
 					doc:id="9acd781e-478a-412d-9577-fb3eb008eb49"
 					config-ref="Apache_Kafka_Producer"
-					topic="${kafka.producer.dlq-topic}" key="#[attributes.key]">
+					topic="${kafka.producer.dlq-topic}" key="#[attributes.key]" transactionalAction="ALWAYS_JOIN">
 					<kafka:headers><![CDATA[#[%dw 2.0
 import toString from dw::util::Coercions
 import substring from dw::core::Strings
@@ -206,7 +206,7 @@ import substring from dw::core::Strings
 						<kafka:publish doc:name="Publish to retry-topic"
 							doc:id="58851448-593f-49ba-91b5-14d744fd4af4"
 							config-ref="Apache_Kafka_Producer"
-							topic="${kafka.producer.retry-topic}" key="#[attributes.key]">
+							topic="${kafka.producer.retry-topic}" key="#[attributes.key]" transactionalAction="ALWAYS_JOIN">
 							<kafka:headers><![CDATA[#[%dw 2.0
 import toString from dw::util::Coercions
 import substring from dw::core::Strings
