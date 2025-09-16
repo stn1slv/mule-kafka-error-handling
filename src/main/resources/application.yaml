@@ -1,0 +1,48 @@
+# Kafka Configuration
+kafka:
+  bootstrap-servers: "127.0.0.1:9094"
+  
+  # Consumer Configuration
+  consumer:
+    main:
+      group-id: "consumer-group-1"
+      topic: "main-topic"
+      isolation-level: "READ_COMMITTED"
+    retry:
+      group-id: "consumer-group-2"
+      topic: "retry-topic"
+      isolation-level: "READ_COMMITTED"
+      poll-timeout: "10" # in seconds
+      recordLimit: "1"
+  
+  # Producer Configuration
+  producer:
+    retry-topic: "retry-topic"
+    dlq-topic: "dlq-topic"
+  
+  # Connection Configuration
+  reconnect-attempts: "3"
+  ack-mode: "AUTO"
+
+# HTTP Configuration
+http:
+  host: "16e07b41f8ca41d49ebcdc7218078454.api.mockbin.io" # Returns HTTP 503 (retryable)
+  #host: "13a0214f061642c18a364de82143230e.api.mockbin.io" # Returns HTTP 400 (non-retryable)
+  port: "443"
+  path: "/"
+  protocol: "HTTPS"
+
+# Retry Configuration
+retry:
+  max-attempts: "3"
+  scheduler:
+    frequency: "1" # in minutes
+  # Retryable errors (comma-separated)
+  retryable-errors: "HTTP:TIMEOUT,HTTP:CONNECTIVITY,HTTP:SERVICE_UNAVAILABLE,KAFKA:TIMEOUT,KAFKA:CONNECTIVITY,REDELIVERY_EXHAUSTED"
+  # Non-retryable errors (comma-separated) - these go directly to DLQ
+  non-retryable-errors: "HTTP:BAD_REQUEST,HTTP:UNAUTHORIZED,HTTP:FORBIDDEN,HTTP:NOT_FOUND,TRANSFORMATION,VALIDATION,EXPRESSION,SECURITY"
+  
+# Processing Configuration
+processing:
+  batch-size: "1000"
+  error-country: "XYZ"
