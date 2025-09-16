@@ -232,25 +232,25 @@ The application includes built-in error simulation for testing:
 
 2. **Monitor Topics**:
    ```bash
-   # Watch retry topic (clean formatted output)
+   # Watch retry topic (clean formatted output with key)
    docker exec -it kafka kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094 \
-     --property print.headers=true --property print.timestamp=true \
-     --property headers.separator=" | "
+     --property print.headers=true --property print.timestamp=true --property print.key=true \
+     --property key.separator=" | KEY: " --property headers.separator=" | "
    
-   # Watch DLQ topic (clean formatted output)
+   # Watch DLQ topic (clean formatted output with key)
    docker exec -it kafka kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094 \
-     --property print.headers=true --property print.timestamp=true \
-     --property headers.separator=" | "
+     --property print.headers=true --property print.timestamp=true --property print.key=true \
+     --property key.separator=" | KEY: " --property headers.separator=" | "
    
-   # Watch retry topic (headers only, no payload)
+   # Watch retry topic (headers and key only, no payload)
    docker exec -it kafka kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094 \
-     --property print.headers=true --property print.value=false \
-     --property print.timestamp=true --property headers.separator=$'\n  '
+     --property print.headers=true --property print.value=false --property print.key=true \
+     --property print.timestamp=true --property key.separator=" | KEY: " --property headers.separator=$'\n  '
    
-   # Watch DLQ topic (headers only, no payload)
+   # Watch DLQ topic (headers and key only, no payload)
    docker exec -it kafka kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094 \
-     --property print.headers=true --property print.value=false \
-     --property print.timestamp=true --property headers.separator=$'\n  '
+     --property print.headers=true --property print.value=false --property print.key=true \
+     --property print.timestamp=true --property key.separator=" | KEY: " --property headers.separator=$'\n  '
    ```
 
 ### Header Monitoring
@@ -264,9 +264,11 @@ The commands above show your custom error tracking headers:
 
 Example output:
 ```
-CreateTime:1726495954163 | X-Retry-Count:2 | X-Error-Type:SERVICE_UNAVAILABLE | X-Failure-Reason:RETRYABLE_ERROR
-{"id": 1, "name": "Test3", "address": {"country": "XYZ"}}
+CreateTime:1758033614894 | KEY: 1758033613841880000 | X-Retry-Count:1 | X-Error-Type:SERVICE_UNAVAILABLE | X-Failure-Reason:RETRYABLE_ERROR
+{"id": 1, "name": "Test", "address": {"country": "XYZ"}}
 ```
+
+The format shows: `CreateTime:<timestamp> | KEY: <message-key> | <headers> | <headers>...`
 
 ## Monitoring and Observability
 
