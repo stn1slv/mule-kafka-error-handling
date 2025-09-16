@@ -225,7 +225,7 @@ The application includes built-in error simulation for testing:
 
 1. **Send Test Message**:
    ```bash
-   echo "$(date +%s%N):{\"id\": 1, \"name\": \"Test\", \"address\": {\"country\": \"XYZ\"}}" | \
+   echo "$(date +%s%N):{\"id\": $(date +%s%N), \"name\": \"Test\", \"address\": {\"country\": \"XYZ\"}}" | \
    docker exec -i kafka kafka-console-producer.sh --topic main-topic --bootstrap-server localhost:9094 \
      --property parse.key=true --property key.separator=:
    ```
@@ -234,23 +234,21 @@ The application includes built-in error simulation for testing:
    ```bash
    # Watch retry topic (clean formatted output with key)
    docker exec -it kafka kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094 \
-     --property print.headers=true --property print.timestamp=true --property print.key=true \
-     --property key.separator=" | KEY: " --property headers.separator=" | "
+     --property print.headers=true --property print.timestamp=true --property headers.separator=" | "
    
    # Watch DLQ topic (clean formatted output with key)
    docker exec -it kafka kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094 \
-     --property print.headers=true --property print.timestamp=true --property print.key=true \
-     --property key.separator=" | KEY: " --property headers.separator=" | "
+     --property print.headers=true --property print.timestamp=true --property headers.separator=" | "
    
    # Watch retry topic (headers and key only, no payload)
    docker exec -it kafka kafka-console-consumer.sh --topic retry-topic --from-beginning --bootstrap-server localhost:9094 \
-     --property print.headers=true --property print.value=false --property print.key=true \
-     --property print.timestamp=true --property key.separator=" | KEY: " --property headers.separator=$'\n  '
+     --property print.headers=true --property print.value=false  \
+     --property print.timestamp=true --property headers.separator=$'\n  '
    
    # Watch DLQ topic (headers and key only, no payload)
    docker exec -it kafka kafka-console-consumer.sh --topic dlq-topic --from-beginning --bootstrap-server localhost:9094 \
-     --property print.headers=true --property print.value=false --property print.key=true \
-     --property print.timestamp=true --property key.separator=" | KEY: " --property headers.separator=$'\n  '
+     --property print.headers=true --property print.value=false  \
+     --property print.timestamp=true --property headers.separator=$'\n  '
    ```
 
 ### Header Monitoring
