@@ -56,7 +56,7 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 		name="Apache_Kafka_Producer"
 		doc:name="Apache Kafka Producer configuration"
 		doc:id="527073d8-0f7c-4b9b-8981-5a2a2207a7f5">
-		<kafka:producer-plaintext-connection idempotence="true">
+		<kafka:producer-plaintext-connection idempotence="true" producerAck="ALL">
 			<kafka:bootstrap-servers>
 				<kafka:bootstrap-server
 					value="${kafka.bootstrap-servers}" />
@@ -206,7 +206,7 @@ import substring from dw::core::Strings
 						<kafka:publish doc:name="Publish to retry-topic"
 							doc:id="58851448-593f-49ba-91b5-14d744fd4af4"
 							config-ref="Apache_Kafka_Producer"
-							topic="${kafka.producer.retry-topic}" key="#[attributes.key]" transactionalAction="ALWAYS_JOIN">
+							topic="${kafka.producer.retry-topic}" key="#[attributes.key]">
 							<kafka:headers><![CDATA[#[%dw 2.0
 import toString from dw::util::Coercions
 import substring from dw::core::Strings
