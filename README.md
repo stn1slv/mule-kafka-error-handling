@@ -73,7 +73,7 @@ Each message carries metadata headers:
 
 ```yaml
 kafka:
-  bootstrap-servers: "127.0.0.1:9094"
+  bootstrap-servers: "127.0.0.1:9092"
   consumer:
     main:
       group-id: "consumer-group-1"
