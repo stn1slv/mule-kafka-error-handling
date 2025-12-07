@@ -1,4 +1,4 @@
-# Kafka Error Handling POC
+# Kafka Error Handling for Mulesoft
 
 A comprehensive proof-of-concept demonstrating sophisticated error handling patterns for Kafka message processing in MuleSoft, featuring retry mechanisms, dead letter queues, and configurable error classification.
 
