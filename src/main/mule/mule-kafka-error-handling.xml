@@ -451,10 +451,6 @@ output application/java
 output application/java
 ---
 (p('retry.retryable-errors') default "" splitBy ",") map trim($) filter ($ != "")]]></ee:set-variable>
-				<ee:set-variable variableName="nonRetryableErrors"><![CDATA[%dw 2.0
-output application/java
----
-(p('retry.non-retryable-errors') default "" splitBy ",") map trim($) filter ($ != "")]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
 
@@ -468,7 +464,7 @@ output application/java
 				<ee:set-variable variableName="isNonRetryable"><![CDATA[%dw 2.0
 output application/java
 ---
-(vars.nonRetryableErrors contains vars.fullErrorType) or (vars.nonRetryableErrors contains vars.errorType)]]></ee:set-variable>
+not ((vars.retryableErrors contains vars.fullErrorType) or (vars.retryableErrors contains vars.errorType))]]></ee:set-variable>
 				<ee:set-variable variableName="isRetryable"><![CDATA[%dw 2.0
 output application/java
 ---

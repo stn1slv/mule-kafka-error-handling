@@ -38,12 +38,12 @@ retry-topic-processing-flow
 
 The system categorizes errors into two types based on configuration in [`application.yaml`](src/main/resources/application.yaml):
 
-- **Retryable Errors**: Temporary failures that might succeed on retry
+- **Retryable Errors**: Temporary failures that might succeed on retry. These are explicitly configured in the `retry.retryable-errors` property.
   - `HTTP:TIMEOUT`, `HTTP:CONNECTIVITY`, `HTTP:SERVICE_UNAVAILABLE`
   - `KAFKA:TIMEOUT`, `KAFKA:CONNECTIVITY`
   - `REDELIVERY_EXHAUSTED`
 
-- **Non-Retryable Errors**: Permanent failures that will always fail
+- **Non-Retryable Errors**: Permanent failures that will always fail. Any error **not** listed in the retryable errors list is automatically treated as non-retryable.
   - `HTTP:BAD_REQUEST`, `HTTP:UNAUTHORIZED`, `HTTP:FORBIDDEN`
   - `HTTP:NOT_FOUND`, `TRANSFORMATION`, `VALIDATION`
   - `EXPRESSION`, `SECURITY`
@@ -73,7 +73,7 @@ Each message carries metadata headers:
 
 ```yaml
 kafka:
-  bootstrap-servers: "127.0.0.1:9094"
+  bootstrap-servers: "127.0.0.1:9092"
   consumer:
     main:
       group-id: "consumer-group-1"
@@ -96,7 +96,6 @@ retry:
   scheduler:
     frequency: "1" # minutes
   retryable-errors: "HTTP:TIMEOUT,HTTP:CONNECTIVITY,HTTP:SERVICE_UNAVAILABLE"
-  non-retryable-errors: "HTTP:BAD_REQUEST,HTTP:UNAUTHORIZED,TRANSFORMATION"
 ```
 
 ### Processing Settings
@@ -124,17 +123,17 @@ processing:
 
 **Why it works**: Messages created during or after the current execution are skipped, ensuring only previously failed messages are processed.
 
-#### 2. **Dual Error Classification Logic**
+#### 2. Dual Error Classification Logic
 
-**Challenge**: Supporting both full error types (`NAMESPACE:TYPE`) and simple types (`TYPE`) for maximum flexibility.
+**Challenge**: Supporting both full error types (`NAMESPACE:TYPE`) and simple types (`TYPE`) for maximum flexibility while simplifying configuration.
 
-**Solution**: Two-stage DataWeave evaluation:
+**Solution**: Two-stage DataWeave evaluation where non-retryable is the default:
 ```dataweave
-isNonRetryable: (vars.nonRetryableErrors contains vars.fullErrorType) 
-                or (vars.nonRetryableErrors contains vars.errorType)
+isNonRetryable: not ((vars.retryableErrors contains vars.fullErrorType) 
+                or (vars.retryableErrors contains vars.errorType))
 ```
 
-**Why it's needed**: Different error conditions may be referenced by simple type or full namespace, providing configuration flexibility.
+**Why it's needed**: Different error conditions may be referenced by simple type or full namespace. By defining only retryable errors, we ensure that any unexpected or unconfigured error is treated safely as non-retryable (fail-fast) rather than being retried unnecessarily.
 
 #### 3. **Batch Processing with Early Termination**
 
