@@ -59,4 +59,5 @@ type auto_2d2b8745_368d_47ee_97d7_fb2a114f6eac_Input_Attributes = {|
     </types:processor-declaration>
   </types:enrichment>
   <types:enrichment select="#a706a742-b337-409c-bb6f-86db930f8261"/>
+  <types:enrichment select="#196b0177-cbf7-48cc-8af7-28adae689800"/>
 </types:mule>
